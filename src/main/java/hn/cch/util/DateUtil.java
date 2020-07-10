@@ -3,6 +3,7 @@ package hn.cch.util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -141,6 +142,42 @@ public class DateUtil {
                 return true;
             }
         }
+    }
+
+    /**
+     * @param datetime
+     * @return
+     */
+    public static boolean syncTime(Date datetime) {
+        try {
+            String osName = System.getProperty("os.name");
+            logger.info("os.name:{}", osName);
+            String[] exec = null;
+            if (osName.matches("^(?i)Windows.*$")) {
+                // 日期格式：yyyy-MM-dd
+                String date = toText("yyyy-MM-dd", datetime);
+                // 时间格式：HH:mm:ss
+                String time = toText("HH:mm:ss", datetime);
+                exec = new String[]{"cmd", "/c", "date", date, "time", time};
+            } else if (osName.matches("^(?i)Linux.*$")) {
+                // 日期时间格式：yyyy-MM-dd HH:mm:ss
+                String text = toText("yyyy-MM-dd HH:mm:ss", datetime);
+                exec = new String[]{"date", "-s", text};
+            } else {
+                logger.error("sync time system unknown windows|linux");
+                return false;
+            }
+            Runtime runtime = Runtime.getRuntime();
+            Process process = runtime.exec(exec);
+            int waitFor = process.waitFor();
+            int exitValue = process.exitValue();
+            return waitFor == 0 && exitValue == 0;
+        } catch (Exception e) {
+            logger.error("sync time Exception error : " + e.getMessage());
+            return false;
+        }
+
+
     }
 
 

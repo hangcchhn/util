@@ -2,6 +2,7 @@ package hn.cch.util;
 
 import org.apache.commons.net.ftp.FTP;
 import org.apache.commons.net.ftp.FTPClient;
+import org.apache.commons.net.ftp.FTPFile;
 import org.apache.commons.net.ftp.FTPReply;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -9,13 +10,18 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.List;
 
 public class FtpUtil {
 
     private static Logger logger = LoggerFactory.getLogger(FtpUtil.class);
 
     //ftp mode :  true(active)|false(passive)
-    private static boolean mode = false;
+    // 主动或被动模式 推或拉 被动模式可限制传输端口
+	// FileZilla Server对主动或被动模式的界限模糊
+	// vsftpd server的被动模式无法使用主动模式访问
+    private static boolean mode = false;//默认被动模式兼容主动模式
+
 
     /**
      * 连接并登陆FTP
@@ -181,8 +187,13 @@ public class FtpUtil {
 			return false;
 		}
 	}
-	
-	
+
+	/**
+	 * 校验文件是否存在
+	 * @param ftpClient
+	 * @param remoteFile
+	 * @return
+	 */
 	public static boolean fileExist(FTPClient ftpClient, String remoteFile){
 		try {
 			InputStream inputStream = ftpClient.retrieveFileStream(remoteFile);
@@ -199,6 +210,14 @@ public class FtpUtil {
 			return false;
 		}
 	}
+
+
+	/**
+	 * 删除文件 注意删除文件后再上传同名文件会失败的
+	 * @param ftpClient
+	 * @param remoteFile
+	 * @return 删除文件结果（要删除的文件不存在也返回成功）
+	 */
     public static boolean deleteFile(FTPClient ftpClient, String remoteFile){
         if (fileExist(ftpClient, remoteFile)){
             try {
@@ -271,6 +290,42 @@ public class FtpUtil {
 			return null;
 		}
 	}
+
+	public static void treeFile(FTPClient ftpClient, String workingDirectory) {
+		try {
+			if (!ftpClient.changeWorkingDirectory(workingDirectory)){
+				logger.info("changeWorkingDirectory fail : " + workingDirectory);
+			}
+			FTPFile[] ftpFiles = ftpClient.listFiles();
+			for (FTPFile ftpFile:ftpFiles) {
+				//logger.info("{}", ftpFile.getRawListing());
+				String name = ftpFile.getName();
+				if (ftpFile.isDirectory()){
+					logger.info("********** ftpDirectory : {}\t{}\t{}",
+							DateUtil.toText("yyyy-MM-dd HH:mm:ss", ftpFile.getTimestamp().getTime()),
+							ftpFile.getSize(), name);
+					logger.info("====================================================================================================");
+					treeFile(ftpClient, name);
+					if (!ftpClient.changeToParentDirectory()){
+						logger.info("changeToParentDirectory fail : " + name);
+					}
+				}else{
+					logger.info("ftpFile : {}\t{}\t{}",
+							DateUtil.toText("yyyy-MM-dd HH:mm:ss", ftpFile.getTimestamp().getTime()),
+							ftpFile.getSize(), name);
+
+
+
+				}
+			}
+
+
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
+
 
 
     public static void closeFtp(FTPClient ftpClient) {
